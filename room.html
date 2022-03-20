@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta content="IE=edge,chrome=1" http-equiv="X-UA-Compatible" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=2, user-scalable=no"
+      />
+    <meta
+      name="description"
+      content="Watch movies and videos together on OneCouch."
+      />
+    <meta name="keywords" content="Semantic-UI, Theme, Design, Template" />
+    <meta name="author" content="PPType" />
+    <meta name="theme-color" content="#ffffff" />
+    <title>OneCouch</title>
+  <script
+    src="https://code.jquery.com/jquery-3.4.1.min.js"
+    integrity="sha256-CSXorXvZcTkaix6Yvo6HppcZGetbYMGWSFlBw8HfCJo="
+    crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js" integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous"></script>
+    <style>
+      .bottom-padded { padding-bottom: 10px; }
+      .top-padded { padding-top: 10px; }
+      .unpadded { padding: 10px; }
+      .valign{
+        display: flex;
+        align-items: center;
+      }
+
+      body { background-color: black; }
+      .topbar {background-color: white;}
+      .cam { border-radius: 2.5%; }
+      #ownCam { width : 100%; }
+      #logo { color: black; }
+      #logo:hover { color: blue; text-decoration: none; }
+
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.13.0/css/all.min.css" integrity="sha256-h20CPZ0QyXlBuAw7A+KluUYx/3pK+c7lYEpqLTlxjYQ=" crossorigin="anonymous" />
+  </head>
+  <body>
+    <div class="container-fluid">
+
+      <!-- WARNINGS 
+      <div class="row">
+        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+          Invite friends by sharing this page's URL above.
+          <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="row">
+        <div class="alert alert-warning alert-dismissible fade show" role="alert">
+          Video quality may degrade with more than 3 participants. Turning off your camera (audio chat only) will fix this.
+          <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+      </div>-->
+
+
+      <!-- NAVBAR -->
+      <div class="row valign top-padded bottom-padded topbar" id="navBar">
+        <div class="col col-sm-2 text-center"> <a id="logo" href="/"> <strong>One</strong>Couch </a> </div>
+        <div class="col col-sm-1"></div>
+        <div class="col col-sm-6">
+          <div class="input-group mb-3 my-auto">
+            <input type="text" class="form-control" placeholder="Video URL" id="videoUrl">
+            <div class="input-group-append">
+              <button class="btn btn-dark" type="button" id="setVideoBtn"><i class="fa fa-couch"></i> </button>
+            </div>
+            </input>
+          </div>
+        </div>
+        <div class="col col-sm-1"></div>
+        <div class="col col-sm-2">
+          <button class="btn btn-light" id="sync">   <i class="fas fa-sync"></i> </button> &nbsp; &nbsp;
+          <button class="btn btn-light" id="toggleVideo">   <i class="fas fa-video-slash"></i> </button> &nbsp; &nbsp;
+          <button class="btn btn-light"> <i class="fas fa-user-friends"></i> </button>
+        </div>
+      </div>
+            
+
+
+      <!-- CORE -->
+      <div class="row core">
+        <!-- MOVIE AREA -->
+        <div class="col col-sm-10 unpadded">
+          <div class="container-fluid">
+            <div class="row bottom-padded" id="player" style="display:none"></div>
+            <div class="row bottom-padded" id="moviePlayerContainer">
+              <video id="movie"
+                width="100%"         
+                src="http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"          
+                controls></video>
+            </div>
+          </div>
+        </div>
+
+        <!-- SIDEBAR -->
+        <div class="col col-sm-2 unpadded">
+          <div class="container-fluid" id="cams">
+            <div class="row bottom-padded">
+              <video class="cam top-padded" id="ownCam" width="100%" muted autoplay></video>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </body>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/2.3.0/socket.io.slim.js" integrity="sha256-Dul4c09cdrWKXVtallPxF558lwxMwCC8dXJdZ0PVW54=" crossorigin="anonymous"></script>
+  <script src="/static/webrtcServers.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+  <script src="/static/jquery.fitvids.js"></script>
+  <script>
+  var mediaConstraints = {
+    audioOnly : { audio : true },
+    audioAndVideo : { audio : true, video : true },
+  };
+
+  // Socket communication
+  var events = {
+    // CLIENT EMITTED
+    REQUEST_TO_JOIN_ROOM : 'REQUEST_TO_JOIN_ROOM',
+    REQUEST_SYNC_TIME : 'REQUEST_SYNC_TIME',
+    RESPONSE_SYNC_TIME: 'RESPONSE_SYNC_TIME',
+    SET_VIDEO_URL : 'SET_VIDEO_URL',
+    SET_VIDEO_TIME : 'SET_VIDEO_TIME',
+    SET_PLAYING : 'SET_PLAYING',
+    WEBRTC_SEND_SIGNAL : 'WEBRTC_SEND_SIGNAL',
+    ICE_CANDIDATE : 'ICE_CANDIDATE',
+
+    // SERVER EMITTED
+    INITIAL_ROOM_STATE : 'INITIAL_ROOM_STATE',
+    USER_JOINED_ROOM : 'USER_JOINED_ROOM',
+    USER_LEFT_ROOM : 'USER_LEFT_ROOM',
+    INITIAL_ROOM_STATE : 'INITIAL_ROOM_STATE',
+    USER_LEFT_ROOM : 'USER_LEFT_ROOM',
+    SYNC_VIDEO_URL : 'SYNC_VIDEO_URL',
+    SYNC_VIDEO_TIME : 'SYNC_VIDEO_TIME',
+    SYNC_PLAYING : 'SYNC_PLAYING',
+    FWD_REQUEST_SYNC_TIME : 'FWD_REQUEST_SYNC_TIME',
+    FWD_RESPONSE_SYNC_TIME: 'FWD_RESPONSE_SYNC_TIME',
+    WEBRTC_FWD_SEND_SIGNAL : 'WEBRTC_FWD_SEND_SIGNAL',
+    WEBRTC_FWD_ICE_CANDIDATE : 'FWD_ICE_CANDIDATE',
+  };
+
+  var players = {
+    MOVIE : 'MOVIE',
+    YT : 'YT',
+  };
+
+  var state = {
+    io : null,
+    roomId : null,
+    playerKind : players.MOVIE,
+    playing : false,
+    moviePlayer : null,
+    remoteVideo : null,
+    youtubeInited : false,
+    youtubePlayer : null,
+    youtubeVidToPlayOnInit : null,
+
+    pcs : {}, // { sockId : pc }
+    remoteStreams : {},
+    remoteVideos : {},
+  };
+
+  function setHTML5VidMode() {
+    state.youtubePlayer.stopVideo();
+    $("#player").hide();
+    $("#moviePlayerContainer").show();
+    state.playerKind = players.MOVIE;
+    state.playing = false;
+  };
+
+  function setYoutubeVidMode() {
+    if (state.moviePlayer) {
+      state.moviePlayer.src = null;
+    }
+    $("#moviePlayerContainer").hide();
+    $("#player").show();
+   // $("#player").empty();
+    state.playerKind = players.YT;
+    state.playing = false;
+  }
+
+  function getRoomIdFromUrl() {
+    const href = window.location.href;
+    const idStartIdx = href.indexOf('/rm/') + 4;
+
+    if (idStartIdx < 4) { return null; }
+    if (href.indexOf('?') > -1) {
+      return href.substring(idStartIdx, href.indexOf('?'));
+    } else {
+      return href.substring(idStartIdx);
+    }
+  }
+
+  function syncVideoUrl(data) {
+    if (!data.url) { return; }
+
+    var url = data.url;
+    if (isYTVid(url)) {
+      setYoutubeVidMode();
+      playYoutubeVid(url);
+    } else {
+      setHTML5VidMode();
+      state.moviePlayer.src = url;
+    }
+
+    $("#videoUrl").val(url);
+  }
+
+  function syncVidTime(data) {
+    console.log(data);
+    var networkLatency = 0.08; // 80 ms
+    var newTime = data.time + networkLatency;
+
+    if (state.playerKind == players.MOVIE) {
+      var movie = $("#movie")[0];
+      if ( Math.abs(movie.currentTime - data.time) < 3 ) { return; }
+      movie.currentTime = newTime;
+    } else if (state.playerKind == players.YT) {
+      if ( Math.abs( state.youtubePlayer.getCurrentTime() - data.time ) < 2.5 ) { return; }
+      state.youtubePlayer.seekTo(newTime);
+    }
+  };
+
+  function syncPlaying(data) {
+    if (data.playing == state.playing) { return; }
+
+    if (state.playerKind == players.MOVIE) {
+      var movie = $("#movie")[0];
+      if (data.playing) {
+        movie.play();
+      } else  {
+        movie.pause();
+      }
+    } else if (state.playerKind == players.YT) {
+      data.playing ? state.youtubePlayer.playVideo() : state.youtubePlayer.pauseVideo();
+      // Because Youtube iFrame API has no explicit onSeek event, we piggyback on onPlay event.
+      if (data.time) { syncVidTime(data); } 
+    }
+
+    state.playing = data.playing;
+  }
+
+  function initSocketConn() {
+    var port = window.location.port ? ":" + window.location.port : "";
+    var socket = io.connect(window.location.hostname + port);
+    state.socket = socket;
+    state.roomId = getRoomIdFromUrl();
+
+    socket.emit(events.REQUEST_TO_JOIN_ROOM, { roomId : state.roomId });
+
+    // Initial message of this room's state
+    socket.on(events.INITIAL_ROOM_STATE, function(data) {
+      if (data.videoUrl) { syncVideoUrl({ url : data.videoUrl }) };
+      if (data.initialized) {
+        syncPlaying(data);
+        emit(events.REQUEST_SYNC_TIME, {});
+      }
+      data.members.forEach( async function(memberSockId) {
+        if (memberSockId == state.socket.id) { return; }
+        getWebRTCPeerConn(memberSockId);
+        await createOffer(true, memberSockId);
+      });
+      
+    });
+
+    socket.on(events.USER_LEFT_ROOM, function(data) {
+      // TODO: Implement this
+    });
+
+    socket.on(events.FWD_RESPONSE_SYNC_TIME, syncVidTime);
+    socket.on(events.SYNC_VIDEO_URL, syncVideoUrl);
+    socket.on(events.SYNC_VIDEO_TIME, syncVidTime);
+    socket.on(events.SYNC_PLAYING, syncPlaying);
+
+    socket.on(events.FWD_REQUEST_SYNC_TIME, function(data) {
+      var time;
+      if (state.playerKind == players.YT) {
+        time = state.youtubePlayer.getCurrentTime(); 
+      } else if (state.playerKind == players.MOVIE) {
+        time = state.moviePlayer.currentTime;
+      } 
+
+      // Adjustment for other member's page bootstrap.
+      const adj = state.playing ? 1.5 : 0;
+      emit(events.RESPONSE_SYNC_TIME, { time : time + adj, requester : data.requester });
+    });
+
+    socket.on(events.WEBRTC_FWD_SEND_SIGNAL, async function(data) {
+      const senderSockId = data.socketId;
+      if (state.socket.id == senderSockId || !senderSockId) { return; }
+      console.log('FWD_SEND_SIGNAL');
+
+      const pc = getWebRTCPeerConn(senderSockId);
+
+      try {
+        if (data.desc) {
+          // If we have an income call
+          if (data.desc.type === "offer") {
+            await pc.setRemoteDescription(data.desc);
+            await createOffer(false, senderSockId);
+            // If we have a response
+          } else if (data.desc.type === "answer") {
+            pc.setRemoteDescription(data.desc);
+          } else {
+            console.log("Unsupported SDP type");
+          }
+        }
+
+      } catch (error) {
+        console.log(error);
+      }
+    });
+
+   socket.on(events.WEBRTC_FWD_ICE_CANDIDATE, async function(data) {
+    const senderSockId = data.socketId;
+    if (state.socket.id == senderSockId || !senderSockId) { return; }
+    console.log('FWD_ICE_CANDIDATE');
+
+    const pc = getWebRTCPeerConn(senderSockId);
+
+    if (pc && data.candidate) {
+      await pc.addIceCandidate( data.candidate );
+    }
+   });
+    
+
+  }
+
+  function prependCam() {
+    var videoDiv = $('<div />', { 'class' : 'row bottom-padded' });
+    var video = $('<video />', {
+        'class' : 'cam',
+        'autoplay' : true,
+        'muted' : true,
+        'width' : '100%',
+    });
+
+    videoDiv.append(video);
+    $('#cams').prepend(videoDiv);
+    return video;
+  }
+
+  function emit(e, data) {
+    data.socketId = state.socket.id;
+    data.roomId = state.roomId;
+    state.socket.emit(e, data);
+  }
+
+  // DOM manipulation
+
+  async function startCamera() {
+
+    var ownCam = document.querySelector("#ownCam");
+
+    if (navigator.mediaDevices.getUserMedia) {
+      var stream = await navigator.mediaDevices.getUserMedia(mediaConstraints.audioAndVideo);
+      state.ownVideoStream = stream;
+      ownCam.srcObject = stream;
+    }
+
+  }
+
+  function emitWarning(msg) {
+
+  }
+
+  function onSetVideoClicked() {
+    var url = $("#videoUrl").val();
+    state.currentlyPlayingVid = url;
+    emit(events.SET_VIDEO_URL, { url : url });
+  }
+
+
+  /********** YOUTUBE PLAYER **********/
+
+  function isYTVid(url) {
+      return url.indexOf('youtube.com/') != -1 || url.indexOf('youtu.be/') != -1;
+  }
+
+  function extractYTVidID(url) {
+          var newval = '';
+          if (newval = url.match(/(\?|&)v=([^&#]+)/)) {
+              return newval.pop();
+          } else if (newval = url.match(/(\.be\/)+([^\/]+)/)) {
+              return newval.pop();
+          } else if (newval = url.match(/(\embed\/)+([^\/]+)/)) {
+              return newval.pop().replace('?rel=0','');
+          } else {
+             return null;
+          }
+  }
+
+  function onYouTubeIframeAPIReady() {
+    state.youtubePlayer = new YT.Player('player', {
+      videoId: state.youtubeVidToPlayOnInit,
+      events: {
+        'onStateChange': onYoutubePlayerStateChange
+      }
+    });
+    $('iframe[src*="youtube"]').parent().fitVids();
+  }
+
+
+  function onYoutubePlayerStateChange(e) {
+    if (e.data == YT.PlayerState.PLAYING) {
+      // Emit a play and a seek
+      emit(events.SET_PLAYING, { playing: true, time : e.target.getCurrentTime() });
+
+    } else if (e.data == YT.PlayerState.PAUSED) {
+      emit(events.SET_PLAYING, { playing: false, time : e.target.getCurrentTime() });
+    }
+
+  }
+
+
+
+  function playYoutubeVid(url) {
+    var vidId = extractYTVidID(url);
+    if (!vidId) {
+      emitWarning('Could not play the Youtube video');
+      return;
+    }
+
+    // This code loads the IFrame Player API code asynchronously.
+    if (!state.youtubeInited) {
+      state.youtubeVidToPlayOnInit = vidId;
+      var tag = document.createElement('script');
+      tag.src = "https://www.youtube.com/iframe_api";
+      var firstScriptTag = document.getElementsByTagName('script')[0];
+      firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+      state.youtubeInited = true;
+    } else if (state.youtubePlayer) {
+      state.youtubePlayer.loadVideoById(vidId);
+    }
+  }
+
+
+  /********** WEBRTC **********/
+
+  function getWebRTCPeerConn(peerSockId) {
+    if (state.pcs[peerSockId]) return state.pcs[peerSockId];
+
+    try {
+    state.pcs[peerSockId] = new RTCPeerConnection( WEBRTC_SERVERS );
+    state.pcs[peerSockId].addStream(state.ownVideoStream);
+    } catch (err) {
+      console.log(err);
+    }
+    
+    const pc = state.pcs[peerSockId];
+
+    pc.oniceconnectionstatechange = function() {
+      console.log('PC state changed to ' + pc.iceConnectionState);
+
+      if (pc.iceConnectionState == 'disconnected') {
+        pc.close();
+        if (state.remoteVideos[peerSockId]) { state.remoteVideos[peerSockId].remove() }
+      }
+
+      if ((pc.iceConnectionState == 'connected' || pc.iceConnectionState == 'completed')
+        && pc.getRemoteStreams().length > 0) {
+        // TODO: useless ; state.remoteVideo.get().srcObject = state.pc.getRemoteStreams()[0];
+      }
+    }
+
+  
+    pc.ontrack = function(e) {
+        if (state.remoteStreams[peerSockId] && state.remoteStreams[peerSockId].id == event.streams[ event.streams.length - 1 ].id) { return; }
+        state.remoteStreams[peerSockId] = event.streams[ event.streams.length - 1 ];
+       
+        // console.log(state.remoteStreams);
+        // console.log("setting remoteVideo srcObject to:");
+        // console.log(state.remoteStream);
+        if (!state.remoteVideos[peerSockId]) {
+          state.remoteVideos[peerSockId] = prependCam();
+        }
+        state.remoteVideos[peerSockId].get()[0].srcObject = pc.getRemoteStreams()[0];
+    }
+
+    pc.onicecandidate = function(e) {
+      if (!e || !e.candidate)
+        return; 
+      emit( events.ICE_CANDIDATE, { candidate : e.candidate, receiverId: peerSockId });
+    };
+
+    return pc;
+  }
+
+  async function createOffer(isInitialOffer, receiverId) {
+      console.log( (isInitialOffer ? '':'Non-') + 'initial offer to ' + receiverId);
+      const pc = getWebRTCPeerConn(receiverId);
+
+      try {
+        const offerOptions = { offerToReceiveAudio: 1, offerToReceiveVideo: 1};
+        let offer;
+        if (isInitialOffer) { offer = await pc.createOffer(offerOptions); }
+        else                { offer = await pc.createAnswer(offerOptions); }
+        await pc.setLocalDescription(offer);
+        sendSignalingMessage(receiverId, pc.localDescription, isInitialOffer);
+      } catch (error) {
+        console.error('Error creating the offer');
+        console.log(error);
+      }
+   }
+
+
+  function sendSignalingMessage(receiverId, desc) {
+    // send the offer to the other peer
+    emit(events.WEBRTC_SEND_SIGNAL , {
+      desc: desc,
+      receiverId : receiverId,
+    });
+  }
+
+  function toggleVideo() {
+
+  }
+
+
+
+  // 'main'
+  $(document).ready(async function() {
+    $("#setVideoBtn").click(onSetVideoClicked);
+    $("#toggleVideo").click(toggleVideo);
+
+    state.moviePlayer = $('#movie')[0];
+
+    state.moviePlayer.onseeked = function(e) {
+      emit(events.SET_VIDEO_TIME, { time : e.target.currentTime }); 
+    };
+  
+    state.moviePlayer.onpause = function(e) {
+      emit(events.SET_PLAYING, { playing : false });
+    };
+  
+    state.moviePlayer.onplay = function(e) {
+      emit(events.SET_PLAYING, { playing : true });
+    };
+
+    await startCamera();
+    initSocketConn();
+  });
+
+  </script>
+</html>
